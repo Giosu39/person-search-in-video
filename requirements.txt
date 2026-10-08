@@ -1,0 +1,14 @@
+# Face detection and recognition
+insightface
+
+# Inference backend.
+# NVIDIA GPU: keep onnxruntime-gpu.
+# CPU only: replace it with "onnxruntime". Don't install both, they conflict.
+onnxruntime-gpu
+
+# Video decoding and image I/O
+opencv-python
+numpy
+
+# Progress bar (optional, but recommended)
+tqdm

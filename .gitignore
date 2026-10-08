@@ -1,0 +1,54 @@
+# ---------- Personal data: never commit ----------
+# Default folders used by the script
+riferimenti/
+video/
+risultati/
+
+# Media files anywhere in the repo
+*.mp4
+*.mov
+*.mkv
+*.avi
+*.m4v
+*.webm
+*.jpg
+*.jpeg
+*.png
+*.bmp
+*.webp
+*.heic
+
+# Script output (in case --out points elsewhere)
+rilevamenti.csv
+segmenti.csv
+
+# Allow images used in the documentation, if you add any
+!docs/**/*.png
+!docs/**/*.jpg
+
+# ---------- Models ----------
+# InsightFace caches models in ~/.insightface, outside the repo,
+# but ignore any local copy just in case
+*.onnx
+models/
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# ---------- Editors / OS ----------
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
