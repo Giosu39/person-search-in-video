@@ -2,9 +2,9 @@
 insightface
 
 # Inference backend.
-# NVIDIA GPU: keep onnxruntime-gpu.
+# NVIDIA GPU: keep this line; the extras install CUDA and cuDNN via pip.
 # CPU only: replace it with "onnxruntime". Don't install both, they conflict.
-onnxruntime-gpu
+onnxruntime-gpu[cuda,cudnn]
 
 # Video decoding and image I/O
 opencv-python

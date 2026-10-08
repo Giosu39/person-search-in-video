@@ -1,4 +1,4 @@
-# trova-persona
+# person-search-in-video
 
 Find the moments in your videos where a specific person appears.
 
@@ -32,7 +32,7 @@ You give the script a few photos of the person and one or more video files. It r
 3. **Face matching.** Every face found in a sampled frame gets its own embedding. It is compared with all the reference embeddings using cosine similarity. If the best score is above the threshold, the frame counts as a match.
 4. **Grouping.** Matches that are close in time are merged into segments (start → end). This way you get "00:03:12 – 00:04:05" instead of a hundred separate rows.
 
-Detection and recognition use [InsightFace](https://github.com/deepinsight/insightface) with the `buffalo_l` model pack, running on ONNX Runtime, either on the GPU or on the CPU.
+Detection and recognition use [InsightFace](https://github.com/deepinsight/insightface) with the `buffalo_l` model pack, running on ONNX Runtime, either on the GPU or on the CPU. Only the pack's detection and recognition models are loaded; its landmark and age/gender models are skipped because they aren't needed and would slow down every frame.
 
 ## What to expect
 
@@ -51,22 +51,24 @@ Detection and recognition use [InsightFace](https://github.com/deepinsight/insig
 
 **Expect to review the results.** This is a search aid, not a verdict. Some true appearances will be missed, and occasionally someone else will match. The saved frames and the per-face scores in `rilevamenti.csv` make the review quick.
 
-**Speed** depends heavily on your hardware, the video resolution, and the settings, so I can't give reliable numbers. As a rough guide, a GPU is many times faster than a CPU. On a CPU, expect processing to take a noticeable fraction of the video's running time, or longer.
+**Speed** depends heavily on your hardware, the video resolution, and the settings, so there are no reliable universal numbers. As a rough guide, a GPU is many times faster than a CPU. On a CPU, processing can take as long as the video itself, or longer. If a run on an NVIDIA machine feels that slow, the GPU is probably not being used (see [Troubleshooting](#troubleshooting)).
+
+The progress bar counts **all** frames of the video, including the skipped ones. To get the number of frames actually analysed per second, divide the rate shown by the bar by the *N* in "analizzo 1 frame ogni N", which is printed when each video starts.
 
 ## Prerequisites
 
-- **Python 3.9 or newer**, 64-bit. Newer Python releases sometimes lack prebuilt wheels for `insightface` or `onnxruntime` for a while. If installation fails on the latest Python, try the previous minor version.
-- **About 1 GB of free disk space** for the packages and the model. The model pack downloads automatically on the first run.
-- **Optional: an NVIDIA GPU** with a CUDA and cuDNN setup compatible with your `onnxruntime-gpu` version. Check the [ONNX Runtime CUDA requirements](https://onnxruntime.ai/docs/execution-providers/CUDA-ExecutionProvider.html#requirements) for the exact versions. Without a working GPU setup, the script automatically falls back to the CPU.
+- **Python 3.11 or newer**, 64-bit. Recent `onnxruntime-gpu` releases only ship wheels for Python 3.11–3.14; check [PyPI](https://pypi.org/project/onnxruntime-gpu/#files) if you use a different version.
+- **A few GB of free disk space** for the packages, the CUDA/cuDNN libraries installed through pip, and the model. The model pack downloads automatically on the first run.
+- **Optional, but strongly recommended: an NVIDIA GPU with an up-to-date driver.** You do **not** need to install the CUDA Toolkit or cuDNN yourself: `requirements.txt` pulls them in through pip. Recent `onnxruntime-gpu` builds target CUDA 13, which requires a recent NVIDIA driver; see the [ONNX Runtime CUDA requirements](https://onnxruntime.ai/docs/execution-providers/CUDA-ExecutionProvider.html#requirements). Without a working GPU setup, the script automatically falls back to the CPU, which is much slower.
 - **Windows only:** installing `insightface` may need the [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/), with the "Desktop development with C++" workload, because part of the package is compiled during installation.
 
-The script has been written with Windows in mind, including support for file paths with accented characters. It should also work on Linux and macOS, but it has not been tested there. On macOS there is no CUDA, so it runs on the CPU.
+**Tested on:** Windows, Python 3.14, NVIDIA RTX 4070 Super, `onnxruntime-gpu` 1.30. The script includes support for file paths with accented characters on Windows. It should also work on Linux and macOS, but it has not been tested there. On macOS there is no CUDA, so it runs on the CPU.
 
 ## Installation
 
 ```bash
-git clone https://github.com/<your-username>/trova-persona.git
-cd trova-persona
+git clone https://github.com/Giosu39/person-search-in-video.git
+cd person-search-in-video
 
 # Recommended: use a virtual environment
 python -m venv .venv
@@ -78,7 +80,17 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-**CPU-only machine?** Open `requirements.txt` and replace `onnxruntime-gpu` with `onnxruntime` before installing. Don't install both, because they conflict.
+**CPU-only machine?** Open `requirements.txt` and replace `onnxruntime-gpu[cuda,cudnn]` with `onnxruntime` before installing. **Never install both `onnxruntime` and `onnxruntime-gpu`:** they conflict, and the CPU-only one usually wins, silently disabling the GPU.
+
+### Check that the GPU is detected
+
+```bash
+pip list | findstr onnxruntime        # Windows (use "grep" on Linux/macOS)
+python -c "import onnxruntime as ort; ort.preload_dlls(); print(ort.get_available_providers())"
+```
+
+- The first command should list **only** `onnxruntime-gpu`.
+- The second should include **`CUDAExecutionProvider`**. If you see only `AzureExecutionProvider` and `CPUExecutionProvider`, see [Troubleshooting](#troubleshooting).
 
 ## Tutorial
 
@@ -98,7 +110,7 @@ The quality and variety of these photos matter more than any setting.
 Create a folder called `video` and copy your files into it (`.mp4`, `.mov`, `.mkv`, `.avi`, `.m4v`).
 
 ```
-trova-persona/
+person-search-in-video/
 ├── trova_persona.py
 ├── riferimenti/
 │   ├── photo1.jpg
@@ -195,7 +207,14 @@ python trova_persona.py --refs riferimenti --videos video --threshold 0.35 --det
 Install the Microsoft C++ Build Tools with the "Desktop development with C++" workload, open a new terminal, and retry.
 
 **The script says CUDA is not available / `CUDAExecutionProvider` is missing**
-Usually this means the installed CUDA or cuDNN versions don't match what your `onnxruntime-gpu` build expects. Check the [ONNX Runtime CUDA requirements](https://onnxruntime.ai/docs/execution-providers/CUDA-ExecutionProvider.html#requirements). Also make sure the plain `onnxruntime` package isn't installed alongside `onnxruntime-gpu` (check with `pip list`). The script still works on the CPU in the meantime.
+A typical symptom is a warning like *"Specified provider 'CUDAExecutionProvider' is not in available provider names. Available providers: 'AzureExecutionProvider, CPUExecutionProvider'"*. That list means the **CPU-only `onnxruntime` package** is the one in use. The progress bar will crawl at just a few frames per second. Fix it with a clean reinstall:
+
+```bash
+pip uninstall -y onnxruntime onnxruntime-gpu
+pip install "onnxruntime-gpu[cuda,cudnn]"
+```
+
+Then update your NVIDIA driver and run the checks in [Check that the GPU is detected](#check-that-the-gpu-is-detected). If `onnxruntime` reappears in `pip list` after installing other packages, uninstall just that one again. If CUDA is still missing, compare your setup with the [ONNX Runtime CUDA requirements](https://onnxruntime.ai/docs/execution-providers/CUDA-ExecutionProvider.html#requirements). The script still works on the CPU in the meantime.
 
 **"Nessun volto trovato" (no face found) for a reference photo**
 That photo is skipped. Use a sharper or more frontal photo, or crop it closer to the face.

@@ -61,7 +61,21 @@ def fmt_ts(seconds: float) -> str:
 def load_model(det_size: int, use_cpu: bool) -> FaceAnalysis:
     providers = ["CPUExecutionProvider"] if use_cpu else [
         "CUDAExecutionProvider", "CPUExecutionProvider"]
-    app = FaceAnalysis(name="buffalo_l", providers=providers)
+
+    if not use_cpu:
+        # Carica le DLL di CUDA/cuDNN installate via pip (onnxruntime-gpu[cuda,cudnn]).
+        # Richiede onnxruntime >= 1.21; se non c'è, si prosegue comunque.
+        try:
+            import onnxruntime as ort
+            if hasattr(ort, "preload_dlls"):
+                ort.preload_dlls()
+        except Exception as e:
+            print(f"[info] preload_dlls non riuscito: {e}")
+
+    # Solo rilevamento + riconoscimento: i modelli di landmark e genere/età
+    # di buffalo_l non servono e rallenterebbero ogni frame.
+    app = FaceAnalysis(name="buffalo_l", providers=providers,
+                       allowed_modules=["detection", "recognition"])
     app.prepare(ctx_id=-1 if use_cpu else 0, det_size=(det_size, det_size))
 
     # Segnala se la GPU è davvero in uso
